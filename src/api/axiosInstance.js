@@ -5,7 +5,7 @@ import * as SecureStore from "expo-secure-store";
 
 const axiosInstance = axios.create({
  baseURL: 'https://nge.nuzum.tech/api/'
-//  baseURL: "https://api.islamictalk.org/api",
+//  baseURL: "https://0abc2d2e7de4.ngrok-free.app/api",
   //  baseURL:"https://f6c7-2401-4900-1cb2-32d4-dd42-955d-34aa-1a94.ngrok-free.app/api",
   //  baseURL:"https://be79-2406-b400-b5-a6c-a9ea-c674-ef7b-5a11.ngrok-free.app/api",
   //  baseURL:"https://hudaapi.nuzum.tech/api"
