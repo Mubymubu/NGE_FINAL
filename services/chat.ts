@@ -23,9 +23,9 @@ export interface ChatMessage {
   CreatedOn?: string;
 }
 
-export const searchChatMatches = async (keyword: string): Promise<ChatSearchResult[]> => {
+export const searchChatMatches = async (keyword: string, skip: number, take: number = 10): Promise<ChatSearchResult[]> => {
   const { data } = await axiosInstance.get<ChatSearchResult[]>('/Chat/SearchChatMatches', {
-    params: { keyword },
+    params: { keyword, skip, take },
   });
   return data;
 };

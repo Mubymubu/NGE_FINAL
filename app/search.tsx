@@ -14,34 +14,84 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { searchChatMatches, ChatSearchResult } from '@/services/chat';
+
 
 const SearchScreen = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [results, setResults] = useState<PostDto[]>([]);
+ const [results, setResults] = useState<ChatSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [visibleCount, setVisibleCount] = useState(10); 
+  const [skip, setSkip] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+
+  const cleanChatText = (text: string) => {
+  return text.replace(/^\[[^\]]+\]\s*/, '');
+};
+
+
+const renderHighlightedText = (text: string, keyword: string) => {
+  if (!keyword) {
+    return <Text style={styles.resultContent}>{text}</Text>;
+  }
+
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`(${escaped})`, 'gi');
+  const parts = text.split(regex);
+
+  return (
+    <Text style={styles.resultContent}>
+      {parts.map((part, index) =>
+        regex.test(part) ? (
+          <Text key={index} style={styles.highlight}>
+            {part}
+          </Text>
+        ) : (
+          part
+        )
+      )}
+    </Text>
+  );
+};
+
+
+
+
 
   const performSearch = useCallback(async (keyword: string) => {
-    if (!keyword.trim()) {
-      setResults([]);
-      return;
-    }
+  if (!keyword.trim()) {
+    setResults([]);
+    setSkip(0);
+    setHasMore(true);
+    return;
+  }
 
-    try {
-      setLoading(true);
-      const response = await searchPosts(keyword.trim());
-      if (response.IsSuccess && response.Data) {
-        setResults(response.Data);
-        setVisibleCount(10); 
-      } else {
-        setResults([]);
-      }
-    } catch (err: any) {
-      setResults([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  try {
+    setLoading(true);
+    const data = await searchChatMatches(keyword, 0, 10);
+    setResults(data);
+    setSkip(data.length);
+    setHasMore(data.length === 10);
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
+
+const loadMore = async () => {
+  if (!hasMore || loading) return;
+
+  setLoading(true);
+  const data = await searchChatMatches(searchQuery, skip, 10);
+
+  setResults(prev => [...prev, ...data]);
+  setSkip(prev => prev + data.length);
+  setHasMore(data.length === 10);
+
+  setLoading(false);
+};
+
+
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -98,42 +148,40 @@ const SearchScreen = () => {
           </View>
         ) : (
           <ScrollView style={styles.resultsScrollView}>
-            {results.slice(0, visibleCount).map((item) => (
-              <TouchableOpacity
-                key={item.Id.toString()}
-                style={styles.resultCard}
-                onPress={() => router.push({ pathname: '/post-detail', params: { id: item.Id } })}>
-                
-                {/* Left Side: Image */}
-                <View style={styles.imageContainer}>
-                  {item.ImageUrl ? (
-                    <Image source={{ uri: item.ImageUrl }} style={styles.postImage} />
-                  ) : (
-                    <View style={styles.placeholderImage}>
-                      <Feather name="image" size={20} color="#ccc" />
-                    </View>
-                  )}
-                </View>
+            {results.map((item, index) => (
+  <TouchableOpacity
+    key={`${item.group}-${item.line}-${index}`}
+    style={styles.resultCard}
+    onPress={() =>
+      router.push({
+        pathname: '/chat-detail',
+        params: {
+          group: item.group,
+          line: item.line.toString(),
+          keyword: searchQuery
+        },
+      })
+    }
+  >
+    <View style={styles.textContainer}>
+      <Text style={styles.groupName}>{item.group}</Text>
+      <Text style={styles.resultContent}>
+        {renderHighlightedText(cleanChatText(item.text), searchQuery)}
 
-                {/* Right Side: Content */}
-                <View style={styles.textContainer}>
-                  <Text style={styles.resultUser}>{item.Name}</Text>
-                  {renderDescription(item.Description, item.Id)}
-                  <View style={styles.footerRow}>
-                    <Text style={styles.resultDate}>By: {item.UserName}</Text>
-                    {item.Url ? <Feather name="link" size={12} color="#F5B400" /> : null}
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
+      </Text>
+    </View>
+  </TouchableOpacity>
+))}
+{hasMore && (
+  <TouchableOpacity style={styles.loadMoreButton} onPress={loadMore}>
+    <Text style={styles.loadMoreText}>Load More</Text>
+    <Feather name="chevron-down" size={16} color="#666" />
+  </TouchableOpacity>
+)}
 
-            {/* Load More Button */}
-            {results.length > visibleCount && (
-              <TouchableOpacity style={styles.loadMoreButton} onPress={handleLoadMore}>
-                <Text style={styles.loadMoreText}>Load More</Text>
-                <Feather name="chevron-down" size={16} color="#666" />
-              </TouchableOpacity>
-            )}
+
+
+            
 
             {results.length === 0 && searchQuery !== '' && (
               <View style={styles.emptyContainer}>
@@ -181,10 +229,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginTop: 10 
   },
+  highlight: {
+  backgroundColor: '#FFE082',
+  color: '#000',
+  fontWeight: '700',
+},
+
   loadMoreText: { color: '#666', fontWeight: 'bold', marginRight: 5 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyContainer: { padding: 20, alignItems: 'center' },
   emptyText: { color: '#666' },
+  groupName: {
+  fontSize: 14,
+  fontWeight: 'bold',
+  color: '#000',
+  marginBottom: 4,
+  
+},
+
 });
 
 export default SearchScreen;
